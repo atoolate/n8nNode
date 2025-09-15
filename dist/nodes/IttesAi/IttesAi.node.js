@@ -69,15 +69,17 @@ class IttesAi {
                         };
                         // Construct the full URL manually
                         const apiUrl = credentials.url;
-                        const fullUrl = apiUrl.endsWith('/') ? `${apiUrl}chat` : `${apiUrl}/chat`;
+                        const fullUrl = `${apiUrl}/api/n8n/chat`;
                         const response = await this.helpers.httpRequest.call(this, {
                             method: 'POST',
                             url: fullUrl,
                             body,
                             json: true,
-                            headers: credentials.apiKey ? {
-                                'Authorization': `Bearer ${credentials.apiKey}`,
-                            } : {},
+                            headers: credentials.apiKey
+                                ? {
+                                    Authorization: `Bearer ${credentials.apiKey}`,
+                                }
+                                : {},
                         });
                         returnData.push({
                             json: response,

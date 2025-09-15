@@ -66,7 +66,11 @@ export class IttesAi implements INodeType {
 						const systemContext = this.getNodeParameter('systemContext', i, '') as string;
 						const temperature = this.getNodeParameter('temperature', i, 0.7) as number;
 						const maxTokens = this.getNodeParameter('maxTokens', i, 2048) as number;
-						const additionalFields = this.getNodeParameter('additionalFields', i, {}) as IDataObject;
+						const additionalFields = this.getNodeParameter(
+							'additionalFields',
+							i,
+							{},
+						) as IDataObject;
 
 						const body: IDataObject = {
 							prompt,
@@ -79,20 +83,19 @@ export class IttesAi implements INodeType {
 
 						// Construct the full URL manually
 						const apiUrl = credentials.url as string;
-						const fullUrl = apiUrl.endsWith('/') ? `${apiUrl}chat` : `${apiUrl}/chat`;
+						const fullUrl = `${apiUrl}/api/n8n/chat`;
 
-						const response = await this.helpers.httpRequest.call(
-							this,
-							{
-								method: 'POST',
-								url: fullUrl,
-								body,
-								json: true,
-								headers: credentials.apiKey ? {
-									'Authorization': `Bearer ${credentials.apiKey}`,
-								} : {},
-							},
-		);
+						const response = await this.helpers.httpRequest.call(this, {
+							method: 'POST',
+							url: fullUrl,
+							body,
+							json: true,
+							headers: credentials.apiKey
+								? {
+										Authorization: `Bearer ${credentials.apiKey}`,
+								  }
+								: {},
+						});
 
 						returnData.push({
 							json: response as IDataObject,

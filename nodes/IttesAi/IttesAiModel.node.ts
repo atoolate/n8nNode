@@ -241,6 +241,7 @@ export class IttesAiModel implements INodeType {
 
 				return response.content || response.message || response.response || response;
 			},
+			// Implement tools if needed in the future
 		};
 
 		return {

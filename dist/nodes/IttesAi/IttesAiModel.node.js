@@ -6,7 +6,7 @@ class IttesAiModel {
         this.description = {
             displayName: 'Ittes AI Model',
             name: 'ittesAiModel',
-            icon: { light: 'file:logo.svg', dark: 'file:logo.svg' },
+            icon: { light: 'file:favicon_ittes.svg', dark: 'file:favicon_ittes.svg' },
             group: ['transform'],
             version: 1,
             description: 'Use Ittes AI models in AI Agent',
@@ -49,30 +49,16 @@ class IttesAiModel {
                     name: 'model',
                     type: 'options',
                     description: 'The model which will generate the completion. <a href="https://docs.ittesai.com/models">Learn more</a>.',
-                    options: [
-                        {
-                            name: 'GPT-3.5 Turbo',
-                            value: 'gpt-3.5-turbo',
-                            description: 'OpenAI GPT-3.5 Turbo model',
-                        },
-                        {
-                            name: 'GPT-4',
-                            value: 'gpt-4',
-                            description: 'OpenAI GPT-4 model',
-                        },
-                        {
-                            name: 'Custom Model',
-                            value: 'custom-model',
-                            description: 'A custom model of your choice',
-                        },
-                    ],
+                    typeOptions: {
+                        loadOptionsMethod: 'getModels',
+                    },
                     routing: {
                         send: {
                             type: 'body',
                             property: 'model',
                         },
                     },
-                    default: 'gpt-3.5-turbo',
+                    default: '',
                 },
                 {
                     displayName: 'Options',
@@ -159,6 +145,56 @@ class IttesAiModel {
                 },
             ],
         };
+        // Register getModels as a loadOptions method for dynamic dropdowns
+        this.methods = {
+            loadOptions: {
+                async getModels() {
+                    var _a, _b;
+                    try {
+                        const credentials = await this.getCredentials('ittesAiApi');
+                        const apiUrl = credentials.url;
+                        const fullUrl = `${apiUrl}/api/n8n/models`;
+                        console.log('IttesAiModel getModels: Making GET request to:', fullUrl);
+                        const response = await this.helpers.httpRequest.call(this, {
+                            method: 'GET',
+                            url: fullUrl,
+                            headers: credentials.apiKey
+                                ? {
+                                    Authorization: `Bearer ${credentials.apiKey}`,
+                                }
+                                : {},
+                            json: true,
+                        });
+                        console.log('IttesAiModel getModels response:', response);
+                        // Sometimes n8n wraps the response in a 'data' property
+                        const models = (_a = response.models) !== null && _a !== void 0 ? _a : (_b = response.data) === null || _b === void 0 ? void 0 : _b.models;
+                        if (!models || !Array.isArray(models)) {
+                            console.error('IttesAiModel: No models array in response:', response);
+                            return [
+                                {
+                                    name: 'No models found',
+                                    value: '',
+                                },
+                            ];
+                        }
+                        return models.map((model) => ({
+                            name: model,
+                            value: model,
+                        }));
+                    }
+                    catch (error) {
+                        console.error('IttesAiModel getModels error:', error);
+                        return [
+                            {
+                                name: 'Error fetching models',
+                                value: '',
+                                description: error instanceof Error ? error.message : String(error),
+                            },
+                        ];
+                    }
+                },
+            },
+        };
     }
     async supplyData(itemIndex) {
         const modelName = this.getNodeParameter('model', itemIndex);
@@ -168,13 +204,13 @@ class IttesAiModel {
                 const body = {
                     prompt: input,
                     model: modelName,
-                    systemContext: (options === null || options === void 0 ? void 0 : options.systemMessage) || '',
+                    system: (options === null || options === void 0 ? void 0 : options.systemMessage) || '',
                     ...nodeOptions,
                     ...options,
                 };
                 const response = await this.helpers.httpRequestWithAuthentication.call(this, 'ittesAiApi', {
                     method: 'POST',
-                    url: '/chat/completions',
+                    url: '/api/n8n/chat',
                     body,
                     json: true,
                 });

@@ -3,6 +3,8 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 	SupplyData,
+	ILoadOptionsFunctions,
+	INodePropertyOptions,
 } from 'n8n-workflow';
 
 import { NodeConnectionType } from 'n8n-workflow';
@@ -11,7 +13,7 @@ export class IttesAiModel implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Ittes AI Model',
 		name: 'ittesAiModel',
-		icon: { light: 'file:logo.svg', dark: 'file:logo.svg' },
+		icon: { light: 'file:favicon_ittes.svg', dark: 'file:favicon_ittes.svg' },
 		group: ['transform'],
 		version: 1,
 		description: 'Use Ittes AI models in AI Agent',
@@ -56,30 +58,16 @@ export class IttesAiModel implements INodeType {
 				type: 'options',
 				description:
 					'The model which will generate the completion. <a href="https://docs.ittesai.com/models">Learn more</a>.',
-				options: [
-					{
-						name: 'GPT-3.5 Turbo',
-						value: 'gpt-3.5-turbo',
-						description: 'OpenAI GPT-3.5 Turbo model',
-					},
-					{
-						name: 'GPT-4',
-						value: 'gpt-4',
-						description: 'OpenAI GPT-4 model',
-					},
-					{
-						name: 'Custom Model',
-						value: 'custom-model',
-						description: 'A custom model of your choice',
-					},
-				],
+				typeOptions: {
+					loadOptionsMethod: 'getModels',
+				},
 				routing: {
 					send: {
 						type: 'body',
 						property: 'model',
 					},
 				},
-				default: 'gpt-3.5-turbo',
+				default: '',
 			},
 			{
 				displayName: 'Options',
@@ -171,6 +159,61 @@ export class IttesAiModel implements INodeType {
 		],
 	};
 
+	// Register getModels as a loadOptions method for dynamic dropdowns
+	methods = {
+		loadOptions: {
+			async getModels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				try {
+					const credentials = await this.getCredentials('ittesAiApi');
+					const apiUrl = credentials.url as string;
+					const fullUrl = `${apiUrl}/api/n8n/models`;
+					
+					console.log('IttesAiModel getModels: Making GET request to:', fullUrl);
+
+					const response = await this.helpers.httpRequest.call(this, {
+						method: 'GET',
+						url: fullUrl,
+						headers: credentials.apiKey
+							? {
+								Authorization: `Bearer ${credentials.apiKey}`,
+							}
+							: {},
+						json: true,
+					});
+
+					console.log('IttesAiModel getModels response:', response);
+
+					// Sometimes n8n wraps the response in a 'data' property
+					const models = response.models ?? response.data?.models;
+
+					if (!models || !Array.isArray(models)) {
+						console.error('IttesAiModel: No models array in response:', response);
+						return [
+							{
+								name: 'No models found',
+								value: '',
+							},
+						];
+					}
+
+					return models.map((model: string) => ({
+						name: model,
+						value: model,
+					}));
+				} catch (error) {
+					console.error('IttesAiModel getModels error:', error);
+					return [
+						{
+							name: 'Error fetching models',
+							value: '',
+							description: error instanceof Error ? error.message : String(error),
+						},
+					];
+				}
+			},
+		},
+	};
+
 	async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
 		const nodeOptions = this.getNodeParameter('options', itemIndex, {}) as object;
@@ -180,7 +223,7 @@ export class IttesAiModel implements INodeType {
 				const body = {
 					prompt: input,
 					model: modelName,
-					systemContext: options?.systemMessage || '',
+					system: options?.systemMessage || '',
 					...nodeOptions,
 					...options,
 				};
@@ -190,7 +233,7 @@ export class IttesAiModel implements INodeType {
 					'ittesAiApi',
 					{
 						method: 'POST',
-						url: '/chat/completions',
+						url: '/api/n8n/chat',
 						body,
 						json: true,
 					},

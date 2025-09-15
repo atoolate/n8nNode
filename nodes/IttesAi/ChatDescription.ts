@@ -44,35 +44,18 @@ export const chatFields: INodeProperties[] = [
 	{
 		displayName: 'AI Model',
 		name: 'model',
-		type: 'string',
-		required: true,
+		type: 'options',
+		description: 'Select the model to use.',
+		default: '',
 		displayOptions: {
 			show: {
 				operation: ['generate'],
 				resource: ['chat'],
 			},
 		},
-        options: [
-            // INSERT AVALIABLE MODELS HERE
-            {
-                name: 'gpt-3.5-turbo',
-                value: 'gpt-3.5-turbo',
-                description: 'OpenAI GPT-3.5 Turbo model',
-            },
-            {
-                name: 'gpt-4',
-                value: 'gpt-4',
-                description: 'OpenAI GPT-4 model',
-            },
-            {
-                name: 'custom-model',
-                value: 'custom-model',
-                description: 'A custom model of your choice',
-            },
-        ],
-		default: 'gpt-3.5-turbo',
-		description: 'The AI model to use for generation',
-		placeholder: 'gpt-3.5-turbo',
+		typeOptions: {
+			loadOptionsMethod: 'getModels',
+		},
 	},
 	{
 		displayName: 'System Context',

@@ -8,7 +8,7 @@ class IttesAi {
         this.description = {
             displayName: 'Ittes AI',
             name: 'ittesAi',
-            icon: { light: 'file:ittesAi.svg', dark: 'file:ittesAi.dark.svg' },
+            icon: { light: 'file:favicon_ittes.svg', dark: 'file:favicon_ittes.svg' },
             group: ['transform'],
             version: 1,
             subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
@@ -41,6 +41,56 @@ class IttesAi {
                 ...ChatDescription_1.chatOperations,
                 ...ChatDescription_1.chatFields,
             ],
+        };
+        // Register getModels as a loadOptions method for dynamic dropdowns
+        this.methods = {
+            loadOptions: {
+                async getModels() {
+                    var _a, _b;
+                    try {
+                        const credentials = await this.getCredentials('ittesAiApi');
+                        const apiUrl = credentials.url;
+                        const fullUrl = `${apiUrl}/api/n8n/models`;
+                        console.log('getModels: Making GET request to:', fullUrl);
+                        const response = await this.helpers.httpRequest.call(this, {
+                            method: 'GET',
+                            url: fullUrl,
+                            headers: credentials.apiKey
+                                ? {
+                                    Authorization: `Bearer ${credentials.apiKey}`,
+                                }
+                                : {},
+                            json: true,
+                        });
+                        console.log('getModels response:', response);
+                        // Sometimes n8n wraps the response in a 'data' property
+                        const models = (_a = response.models) !== null && _a !== void 0 ? _a : (_b = response.data) === null || _b === void 0 ? void 0 : _b.models;
+                        if (!models || !Array.isArray(models)) {
+                            console.error('No models array in response:', response);
+                            return [
+                                {
+                                    name: 'No models found',
+                                    value: '',
+                                },
+                            ];
+                        }
+                        return models.map((model) => ({
+                            name: model,
+                            value: model,
+                        }));
+                    }
+                    catch (error) {
+                        console.error('getModels error:', error);
+                        return [
+                            {
+                                name: 'Error fetching models',
+                                value: '',
+                                description: error instanceof Error ? error.message : String(error),
+                            },
+                        ];
+                    }
+                },
+            },
         };
     }
     async execute() {

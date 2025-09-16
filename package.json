@@ -46,6 +46,7 @@
     "n8n-workflow": "*"
   },
   "dependencies": {
-    "@langchain/core": "^0.3.76"
+    "@langchain/core": "^0.3.76",
+    "@langchain/openai": "^0.6.12"
   }
 }

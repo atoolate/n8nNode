@@ -6,8 +6,8 @@ import type {
 	ILoadOptionsFunctions,
 	INodePropertyOptions,
 } from 'n8n-workflow';
-import { IttesAIChatModel } from './IttesAiChatModel';
 import { NodeConnectionType } from 'n8n-workflow';
+import { ChatOpenAI } from '@langchain/openai';
 
 export class IttesAiModel implements INodeType {
 	description: INodeTypeDescription = {
@@ -216,18 +216,36 @@ export class IttesAiModel implements INodeType {
 
 	async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
-		const nodeOptions = this.getNodeParameter('options', itemIndex, {}) as object;
+		const options = this.getNodeParameter('options', itemIndex, {}) as {
+			maxTokens?: number;
+			temperature?: number;
+			topP?: number;
+			frequencyPenalty?: number;
+			presencePenalty?: number;
+		};
 		const credentials = await this.getCredentials('ittesAiApi');
-		const baseUrl = credentials.url as string;
+		const apiUrl = credentials.url as string;
 		const apiKey = credentials.apiKey as string;
 
+		const definedOptions: Record<string, unknown> = {};
+		for (const key in options) {
+			if (options[key as keyof typeof options] !== undefined) {
+				definedOptions[key] = options[key as keyof typeof options];
+			}
+		}
+
+		const llm = new ChatOpenAI({
+			modelName: modelName,
+			...definedOptions,
+			apiKey: apiKey,
+			streaming: false,
+			configuration: {
+				baseURL: `${apiUrl}/api/n8n/chat`,
+			},
+		});
+
 		return {
-			response: new IttesAIChatModel({
-				model: modelName,
-				baseUrl,
-				apiKey,
-				...nodeOptions,
-			}),
+			response: llm,
 		};
 	}
 }

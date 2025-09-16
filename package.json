@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-ittes-ai",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "n8n custom node for Ittes AI API",
   "keywords": [
     "n8n-community-node-package"
@@ -44,5 +44,8 @@
   },
   "peerDependencies": {
     "n8n-workflow": "*"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.76"
   }
 }

@@ -6,7 +6,7 @@ import type {
 	ILoadOptionsFunctions,
 	INodePropertyOptions,
 } from 'n8n-workflow';
-
+import { IttesAIChatModel } from './IttesAiChatModel';
 import { NodeConnectionType } from 'n8n-workflow';
 
 export class IttesAiModel implements INodeType {
@@ -167,7 +167,7 @@ export class IttesAiModel implements INodeType {
 					const credentials = await this.getCredentials('ittesAiApi');
 					const apiUrl = credentials.url as string;
 					const fullUrl = `${apiUrl}/api/n8n/models`;
-					
+
 					console.log('IttesAiModel getModels: Making GET request to:', fullUrl);
 
 					const response = await this.helpers.httpRequest.call(this, {
@@ -175,8 +175,8 @@ export class IttesAiModel implements INodeType {
 						url: fullUrl,
 						headers: credentials.apiKey
 							? {
-								Authorization: `Bearer ${credentials.apiKey}`,
-							}
+									Authorization: `Bearer ${credentials.apiKey}`,
+							  }
 							: {},
 						json: true,
 					});
@@ -217,35 +217,17 @@ export class IttesAiModel implements INodeType {
 	async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
 		const nodeOptions = this.getNodeParameter('options', itemIndex, {}) as object;
-
-		const ittesAiModel = {
-			invoke: async (input: string, options?: { systemMessage?: string }) => {
-				const body = {
-					prompt: input,
-					model: modelName,
-					system: options?.systemMessage || '',
-					...nodeOptions,
-					...options,
-				};
-
-				const response = await this.helpers.httpRequestWithAuthentication.call(
-					this,
-					'ittesAiApi',
-					{
-						method: 'POST',
-						url: '/api/n8n/chat',
-						body,
-						json: true,
-					},
-				);
-
-				return response.content || response.message || response.response || response;
-			},
-			// Implement tools if needed in the future
-		};
+		const credentials = await this.getCredentials('ittesAiApi');
+		const baseUrl = credentials.url as string;
+		const apiKey = credentials.apiKey as string;
 
 		return {
-			response: ittesAiModel,
+			response: new IttesAIChatModel({
+				model: modelName,
+				baseUrl,
+				apiKey,
+				...nodeOptions,
+			}),
 		};
 	}
 }

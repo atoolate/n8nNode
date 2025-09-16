@@ -67,7 +67,7 @@ exports.chatFields = [
                 resource: ['chat'],
             },
         },
-        default: 'You are a helpful assistant orchistrating API calls between n8n and external APIs.',
+        default: 'You are a helpful AI assistant.',
         description: 'System context or instructions for the AI model',
         typeOptions: {
             rows: 3,

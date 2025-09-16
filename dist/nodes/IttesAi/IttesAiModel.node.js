@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IttesAiModel = void 0;
+const IttesAiChatModel_1 = require("./IttesAiChatModel");
 class IttesAiModel {
     constructor() {
         this.description = {
@@ -199,26 +200,16 @@ class IttesAiModel {
     async supplyData(itemIndex) {
         const modelName = this.getNodeParameter('model', itemIndex);
         const nodeOptions = this.getNodeParameter('options', itemIndex, {});
-        const ittesAiModel = {
-            invoke: async (input, options) => {
-                const body = {
-                    prompt: input,
-                    model: modelName,
-                    system: (options === null || options === void 0 ? void 0 : options.systemMessage) || '',
-                    ...nodeOptions,
-                    ...options,
-                };
-                const response = await this.helpers.httpRequestWithAuthentication.call(this, 'ittesAiApi', {
-                    method: 'POST',
-                    url: '/api/n8n/chat',
-                    body,
-                    json: true,
-                });
-                return response.content || response.message || response.response || response;
-            },
-        };
+        const credentials = await this.getCredentials('ittesAiApi');
+        const baseUrl = credentials.url;
+        const apiKey = credentials.apiKey;
         return {
-            response: ittesAiModel,
+            response: new IttesAiChatModel_1.IttesAIChatModel({
+                model: modelName,
+                baseUrl,
+                apiKey,
+                ...nodeOptions,
+            }),
         };
     }
 }

@@ -1,24 +1,28 @@
+// IttesAiChatModelNode.node.ts
+
 import type {
-	ISupplyDataFunctions,
 	INodeType,
 	INodeTypeDescription,
-	SupplyData,
 	ILoadOptionsFunctions,
 	INodePropertyOptions,
+	ISupplyDataFunctions,
+	SupplyData,
 } from 'n8n-workflow';
 import { NodeConnectionType } from 'n8n-workflow';
-import { ChatOpenAI } from '@langchain/openai';
+
+// Import the ChatModel wrapper (from my previous code)
+import { IttesAiChatModel } from './IttesAiChatModel';
 
 export class IttesAiModel implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Ittes AI Model',
-		name: 'ittesAiModel',
+		displayName: 'Ittes AI Chat Model',
+		name: 'ittesAiChatModel',
 		icon: { light: 'file:favicon_ittes.svg', dark: 'file:favicon_ittes.svg' },
-		group: ['transform'],
+		group: ['AI'],
 		version: 1,
 		description: 'Use Ittes AI models in AI Agent',
 		defaults: {
-			name: 'Ittes AI Model',
+			name: 'Ittes AI Chat Model',
 		},
 		codex: {
 			categories: ['AI'],
@@ -33,9 +37,7 @@ export class IttesAiModel implements INodeType {
 				],
 			},
 		},
-		// eslint-disable-next-line n8n-nodes-base/node-class-description-inputs-wrong-regular-node
 		inputs: [],
-		// eslint-disable-next-line n8n-nodes-base/node-class-description-outputs-wrong
 		outputs: [NodeConnectionType.AiLanguageModel],
 		outputNames: ['Model'],
 		credentials: [
@@ -61,12 +63,6 @@ export class IttesAiModel implements INodeType {
 				typeOptions: {
 					loadOptionsMethod: 'getModels',
 				},
-				routing: {
-					send: {
-						type: 'body',
-						property: 'model',
-					},
-				},
 				default: '',
 			},
 			{
@@ -81,85 +77,37 @@ export class IttesAiModel implements INodeType {
 						displayName: 'Maximum Number of Tokens',
 						name: 'maxTokens',
 						default: 2048,
-						description: 'The maximum number of tokens to generate in the completion',
 						type: 'number',
-						typeOptions: {
-							minValue: 1,
-							maxValue: 8192,
-						},
-						routing: {
-							send: {
-								type: 'body',
-								property: 'maxTokens',
-							},
-						},
 					},
 					{
 						displayName: 'Temperature',
 						name: 'temperature',
 						default: 0.7,
-						typeOptions: { minValue: 0, maxValue: 2, numberStepSize: 0.1 },
-						description:
-							'Controls randomness: Lowering results in less random completions. As the temperature approaches zero, the model will become deterministic and repetitive.',
 						type: 'number',
-						routing: {
-							send: {
-								type: 'body',
-								property: 'temperature',
-							},
-						},
 					},
 					{
 						displayName: 'Top P',
 						name: 'topP',
 						default: 1,
-						typeOptions: { minValue: 0, maxValue: 1, numberStepSize: 0.1 },
-						description:
-							'Controls diversity via nucleus sampling: 0.5 means half of all likelihood-weighted options are considered. We generally recommend altering this or temperature but not both.',
 						type: 'number',
-						routing: {
-							send: {
-								type: 'body',
-								property: 'topP',
-							},
-						},
 					},
 					{
 						displayName: 'Frequency Penalty',
 						name: 'frequencyPenalty',
 						default: 0,
-						typeOptions: { minValue: -2, maxValue: 2, numberStepSize: 0.1 },
-						description:
-							"Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim",
 						type: 'number',
-						routing: {
-							send: {
-								type: 'body',
-								property: 'frequencyPenalty',
-							},
-						},
 					},
 					{
 						displayName: 'Presence Penalty',
 						name: 'presencePenalty',
 						default: 0,
-						typeOptions: { minValue: -2, maxValue: 2, numberStepSize: 0.1 },
-						description:
-							"Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics",
 						type: 'number',
-						routing: {
-							send: {
-								type: 'body',
-								property: 'presencePenalty',
-							},
-						},
 					},
 				],
 			},
 		],
 	};
 
-	// Register getModels as a loadOptions method for dynamic dropdowns
 	methods = {
 		loadOptions: {
 			async getModels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
@@ -167,27 +115,27 @@ export class IttesAiModel implements INodeType {
 					const credentials = await this.getCredentials('ittesAiApi');
 					const apiUrl = credentials.url as string;
 					const fullUrl = `${apiUrl}/api/n8n/models`;
-
-					console.log('IttesAiModel getModels: Making GET request to:', fullUrl);
+					
+					console.log('getModels: Making GET request to:', fullUrl);
 
 					const response = await this.helpers.httpRequest.call(this, {
 						method: 'GET',
 						url: fullUrl,
 						headers: credentials.apiKey
 							? {
-									Authorization: `Bearer ${credentials.apiKey}`,
-							  }
+								Authorization: `Bearer ${credentials.apiKey}`,
+							}
 							: {},
 						json: true,
 					});
 
-					console.log('IttesAiModel getModels response:', response);
+					console.log('getModels response:', response);
 
 					// Sometimes n8n wraps the response in a 'data' property
 					const models = response.models ?? response.data?.models;
 
 					if (!models || !Array.isArray(models)) {
-						console.error('IttesAiModel: No models array in response:', response);
+						console.error('No models array in response:', response);
 						return [
 							{
 								name: 'No models found',
@@ -201,7 +149,7 @@ export class IttesAiModel implements INodeType {
 						value: model,
 					}));
 				} catch (error) {
-					console.error('IttesAiModel getModels error:', error);
+					console.error('getModels error:', error);
 					return [
 						{
 							name: 'Error fetching models',
@@ -210,7 +158,7 @@ export class IttesAiModel implements INodeType {
 						},
 					];
 				}
-			},
+			}, 
 		},
 	};
 
@@ -224,27 +172,21 @@ export class IttesAiModel implements INodeType {
 			presencePenalty?: number;
 		};
 		const credentials = await this.getCredentials('ittesAiApi');
-		const apiUrl = credentials.url as string;
-		const apiKey = credentials.apiKey as string;
 
-		const definedOptions: Record<string, unknown> = {};
-		for (const key in options) {
-			if (options[key as keyof typeof options] !== undefined) {
-				definedOptions[key] = options[key as keyof typeof options];
-			}
-		}
-
-		const llm = new ChatOpenAI({
-			modelName: modelName,
-			...definedOptions,
-			apiKey: apiKey,
-			streaming: false,
-			configuration: {
-				baseURL: `${apiUrl}/api/n8n/chat`,
-			},
+		const llm = new IttesAiChatModel({
+			model: modelName,
+			apiKey: credentials.apiKey as string,
+			baseUrl: credentials.url as string,
+			temperature: options.temperature ?? 0.7,
+			maxTokens: options.maxTokens ?? 2048,
+			topP: options.topP ?? 1,
+			frequencyPenalty: options.frequencyPenalty ?? 0,
+			presencePenalty: options.presencePenalty ?? 0,
+			executionContext: this,
 		});
 
 		return {
+			// must align with NodeConnectionType.AiLanguageModel
 			response: llm,
 		};
 	}

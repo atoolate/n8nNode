@@ -12,7 +12,7 @@ export class IttesAiApi implements ICredentialType {
 			displayName: 'API URL',
 			name: 'url',
 			type: 'string',
-			default: 'https://api.ittesai.com',
+			default: 'https://dev.ittesai.com',
 			description: 'The base URL for your Ittes AI API',
 			required: true,
 		},

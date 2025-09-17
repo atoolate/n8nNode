@@ -1,7 +1,7 @@
 import {
     ChatResult,
 } from '@langchain/core/outputs';
-import { AIMessage, BaseMessage } from '@langchain/core/messages';
+import { AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { ToolCall } from '@langchain/core/messages/tool';
 import {
     BaseChatModel,
@@ -10,6 +10,8 @@ import {
 import type { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
 import type { ISupplyDataFunctions } from 'n8n-workflow';
 import { Runnable } from '@langchain/core/runnables';
+import { convertToOpenAITool } from "@langchain/core/utils/function_calling"; // <-- IMPORT THIS
+
 
 // Structure your API may return
 interface ApiToolCall {
@@ -27,11 +29,11 @@ interface IttesAIInput extends BaseChatModelParams {
     apiKey: string;
     baseUrl: string;
     model: string;
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    frequencyPenalty?: number;
-    presencePenalty?: number;
+    temperature?: number | undefined;
+    maxTokens?: number | undefined;
+    topP?: number | undefined;
+    frequencyPenalty?: number | undefined;
+    presencePenalty?: number | undefined;
     executionContext: ISupplyDataFunctions; // Pass the n8n execution context
     tools?: any[];
 }
@@ -46,7 +48,7 @@ export class IttesAiChatModel extends BaseChatModel {
     frequencyPenalty?: number | undefined;
     presencePenalty?: number | undefined;
     executionContext: ISupplyDataFunctions;
-	tools: any[]; // To hold tools if any are passed
+    tools: any[]; // To hold tools if any are passed
 
     constructor(fields: IttesAIInput) {
         super(fields);
@@ -59,7 +61,7 @@ export class IttesAiChatModel extends BaseChatModel {
         this.frequencyPenalty = fields.frequencyPenalty;
         this.presencePenalty = fields.presencePenalty;
         this.executionContext = fields.executionContext;
-		this.tools = fields.tools ?? [];
+        this.tools = fields.tools ?? [];
     }
 
     _llmType(): string {
@@ -68,15 +70,7 @@ export class IttesAiChatModel extends BaseChatModel {
 
     override bindTools(tools: any[]): Runnable<any, any> {
         return new IttesAiChatModel({
-            apiKey: this.apiKey,
-            baseUrl: this.baseUrl,
-            model: this.model,
-            temperature: this.temperature ?? 0.7,
-            maxTokens: this.maxTokens ?? 2048,
-            topP: this.topP ?? 1,
-            frequencyPenalty: this.frequencyPenalty ?? 0,
-            presencePenalty: this.presencePenalty ?? 0,
-            executionContext: this.executionContext,
+            ...this,
             tools: tools,
         });
     }
@@ -86,12 +80,27 @@ export class IttesAiChatModel extends BaseChatModel {
         options: this['ParsedCallOptions'],
         _runManager?: CallbackManagerForLLMRun,
     ): Promise<ChatResult> {
-        const systemMessage = messages.find((msg) => msg._getType() === 'system');
-        const userMessage = messages.find((msg) => msg._getType() === 'human');
+        // Correctly format messages into the structure your API expects
+        const formattedMessages = messages.map(msg => {
+            if (msg._getType() === 'system') {
+                return { role: 'system', content: msg.content };
+            }
+            if (msg._getType() === 'human') {
+                return { role: 'user', content: [{ type: 'text', text: msg.content }] };
+            }
+            if (msg._getType() === 'ai') {
+                return { role: 'assistant', content: msg.content };
+            }
+            if (msg._getType() === 'tool') {
+                return { role: 'tool', content: msg.content, tool_use_id: (msg as ToolMessage).tool_call_id };
+            }
+            return { role: 'user', content: msg.content };
+        }).filter(msg => msg.role !== 'system'); // Remove system messages from the main prompt array
+
+        const systemMessage = messages.find((msg) => msg._getType() === 'system') as SystemMessage | undefined;
 
         const requestBody: any = {
-            prompt: userMessage?.content ?? '',
-            system: systemMessage?.content ?? undefined,
+            prompt: formattedMessages,
             model: this.model,
             temperature: this.temperature,
             maxTokens: this.maxTokens,
@@ -100,18 +109,23 @@ export class IttesAiChatModel extends BaseChatModel {
             presencePenalty: this.presencePenalty,
         };
 
-        const tools = this.tools.concat((options as any).tools ?? []);
-        if (tools.length > 0) {
-            requestBody.tools = tools.map((tool: any) => ({
-                name: tool.name,
-                description: tool.description,
-                parameters: tool.schema,
-            }));
+        // Add system message if it exists
+        if (systemMessage) {
+            requestBody.system = systemMessage.content;
+        }
+
+         // FIX: Correctly handle and convert tools
+        if (this.tools && this.tools.length > 0) {
+            requestBody.tools = this.tools.map((tool: any) => {
+                // The n8n agent may wrap the tool. We need the core definition.
+                const toolDefinition = tool.lc_kwargs?.function ?? tool;
+                return convertToOpenAITool(toolDefinition);
+            });
         }
 
         const json = (await this.executionContext.helpers.httpRequest({
             method: 'POST',
-            url: `${this.baseUrl}/api/n8n/chat`,
+            url: `${this.baseUrl}/api/n8n/agent`,
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${this.apiKey}`,

@@ -1,7 +1,7 @@
 import {
     ChatResult,
 } from '@langchain/core/outputs';
-import { AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
+import { AIMessage, BaseMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { ToolCall } from '@langchain/core/messages/tool';
 import {
     BaseChatModel,
@@ -77,7 +77,7 @@ export class IttesAiChatModel extends BaseChatModel {
 
     async _generate(
         messages: BaseMessage[],
-        options: this['ParsedCallOptions'],
+        _options: this['ParsedCallOptions'],
         _runManager?: CallbackManagerForLLMRun,
     ): Promise<ChatResult> {
         const formattedMessages = messages.map(msg => {

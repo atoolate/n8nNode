@@ -80,7 +80,6 @@ export class IttesAiChatModel extends BaseChatModel {
         options: this['ParsedCallOptions'],
         _runManager?: CallbackManagerForLLMRun,
     ): Promise<ChatResult> {
-        // Correctly format messages into the structure your API expects
         const formattedMessages = messages.map(msg => {
             if (msg._getType() === 'system') {
                 return { role: 'system', content: msg.content };
@@ -89,13 +88,22 @@ export class IttesAiChatModel extends BaseChatModel {
                 return { role: 'user', content: [{ type: 'text', text: msg.content }] };
             }
             if (msg._getType() === 'ai') {
-                return { role: 'assistant', content: msg.content };
+                const aiMessage = msg as AIMessage;
+                // The OpenAI API expects content to be null when tool_calls are present.
+                const content = (aiMessage.tool_calls && aiMessage.tool_calls.length > 0) ? null : aiMessage.content;
+                return {
+                    role: 'assistant',
+                    content: content,
+                    tool_calls: aiMessage.tool_calls
+                };
             }
             if (msg._getType() === 'tool') {
-                return { role: 'tool', content: msg.content, tool_use_id: (msg as ToolMessage).tool_call_id };
+                // The API expects 'tool_call_id', not 'tool_use_id'.
+                return { role: 'tool', content: msg.content, tool_call_id: (msg as ToolMessage).tool_call_id };
             }
+            // Fallback for other message types if any
             return { role: 'user', content: msg.content };
-        }).filter(msg => msg.role !== 'system'); // Remove system messages from the main prompt array
+        }).filter(msg => msg.role !== 'system');
 
         const systemMessage = messages.find((msg) => msg._getType() === 'system') as SystemMessage | undefined;
 

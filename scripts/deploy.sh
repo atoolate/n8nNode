@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# script to run local test on local n8n instance
 # Define paths
 PACKAGE_DIR="/home/alexdelaet/n8nNode"
 N8N_DIR="/home/alexdelaet/n8n-local-test"
